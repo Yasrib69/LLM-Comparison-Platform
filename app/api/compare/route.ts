@@ -8,7 +8,10 @@ import {
   modelB,
 } from "../../../lib/providers";
 
-import { transaction, Comparison } from "../../../lib/store";
+import {
+  saveComparison,
+  type Comparison,
+} from "../../../lib/store";
 
 export const runtime = "nodejs";
 
@@ -16,6 +19,7 @@ export async function POST(req: Request) {
   try {
     const { prompt, visitorId } = await req.json();
 
+    // Validate input.
     if (
       typeof prompt !== "string" ||
       !prompt.trim() ||
@@ -29,7 +33,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Request responses from two different providers concurrently.
+    // Generate responses from two different LLM providers.
     const [responseA, responseB] = await Promise.all([
       generateGroq(prompt.trim()),
       generateCerebras(prompt.trim()),
@@ -47,13 +51,13 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    // Save the comparison to persistent local storage.
-    await transaction((items) => {
-      items.unshift(entry);
-    });
+    // Save the comparison to Neon PostgreSQL.
+    await saveComparison(entry);
 
     return NextResponse.json(entry);
   } catch (error) {
+    console.error("Comparison error:", error);
+
     return NextResponse.json(
       {
         error:

@@ -1,18 +1,45 @@
-import { NextResponse } from 'next/server';
-import { transaction } from '../../../lib/store';
-export const runtime = 'nodejs';
+
+import { NextResponse } from "next/server";
+import { saveVote } from "../../../lib/store";
+
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   try {
     const { id, visitorId, winner } = await req.json();
-    if (typeof id !== 'string' || typeof visitorId !== 'string' || (winner !== 'A' && winner !== 'B')) return NextResponse.json({ error: 'Invalid vote.' }, { status: 400 });
-    const updated = await transaction((items) => {
-      const match = items.find((v) => v.id === id && v.visitorId === visitorId);
-      if (!match) return 'missing';
-      if (match.winner !== null) return 'already';
-      match.winner = winner;
-      return 'ok';
-    });
-    if (updated !== 'ok') return NextResponse.json({ error: updated === 'already' ? 'Already voted.' : 'Comparison not found.' }, { status: 409 });
+
+    // Validate the voting request.
+    if (
+      typeof id !== "string" ||
+      typeof visitorId !== "string" ||
+      (winner !== "A" && winner !== "B")
+    ) {
+      return NextResponse.json(
+        { error: "Invalid vote." },
+        { status: 400 }
+      );
+    }
+
+    // Save the vote to Neon PostgreSQL.
+    const success = await saveVote(id, visitorId, winner);
+
+    if (!success) {
+      return NextResponse.json(
+        {
+          error:
+            "Comparison not found, or a vote has already been recorded.",
+        },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json({ success: true });
-  } catch { return NextResponse.json({ error: 'Unable to save vote.' }, { status: 500 }); }
+  } catch (error) {
+    console.error("Voting error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to save vote." },
+      { status: 500 }
+    );
+  }
 }

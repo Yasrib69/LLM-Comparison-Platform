@@ -2,80 +2,82 @@
 
 ## 1. Development Approach
 
-I started by breaking the assignment into six main requirements: prompt submission, generating responses from two different LLMs, displaying responses side by side, voting, leaderboard tracking, and persistent comparison history.
+I divided the assignment into six core requirements: prompt submission, generating responses from two different language models, side-by-side comparison, voting, leaderboard tracking, and persistent history.
 
-My priority was to build a functional application with a simple architecture rather than spending unnecessary time on UI complexity.
+I focused on implementing these requirements first, keeping the application simple and functional rather than adding unnecessary features.
 
-I chose to keep the frontend and backend in a single Next.js project to simplify development, testing, and maintenance.
+I chose a single Next.js project for the frontend and backend to reduce setup complexity and simplify development.
 
 ## 2. Architecture and Technical Decisions
 
-**Frontend and Backend**
+### Frontend and Backend
 
-I used Next.js with React and TypeScript. Next.js allows the frontend and backend API routes to exist in the same project, reducing the need to maintain separate applications.
+The application uses Next.js, React, and TypeScript. Next.js API routes handle requests from the frontend, allowing both parts of the application to remain in one repository.
 
-**LLM Integration**
+### LLM Integration
 
-I integrated two different API providers:
+I integrated two different AI providers:
 
-- GroqCloud using GPT-OSS 20B.
-- Cerebras Inference using GPT-OSS 120B.
+- GroqCloud — GPT-OSS 20B
+- Cerebras Inference — GPT-OSS 120B
 
-Both models receive the same user prompt. API requests run concurrently using `Promise.all()` to reduce the total response time.
+Both providers receive the same prompt, and requests are executed concurrently using `Promise.all()` to reduce response time.
 
-The API keys are stored in environment variables and accessed only from the backend.
+API keys are stored in server-side environment variables rather than exposed in frontend code.
 
-**Data Storage**
+### Database
 
-I used local JSON file storage to keep the initial implementation simple and avoid requiring a separate database installation.
+I initially used local JSON storage to simplify development and validate the core functionality.
 
-The application stores comparisons, model responses, timestamps, and voting results on the server.
+After verifying the application locally, I migrated the storage layer to Neon PostgreSQL using `@neondatabase/serverless`.
 
-**Voting and Leaderboard**
+PostgreSQL provides persistent storage that can be accessed by both local and deployed instances of the application.
 
-Each comparison allows one recorded vote. Votes are associated with the visitor who created the comparison.
+### Voting and Leaderboard
 
-The leaderboard calculates model performance from stored votes rather than maintaining manually updated counters.
+Each comparison allows one recorded vote. Voting uses an atomic database update to prevent multiple votes on the same comparison.
 
-**User History**
+The leaderboard calculates total votes, wins, and win percentages from the stored voting records.
 
-I used an anonymous browser identifier stored in localStorage to associate comparisons with returning visitors.
+### User History
 
-This approach avoids the complexity of user registration while allowing users to view their previous comparisons and votes.
+An anonymous browser identifier stored in localStorage associates comparisons with returning visitors.
 
-The identifier is not a secure authentication mechanism, so a production application would require stronger user identification and access controls.
+This provides persistent history without requiring users to create accounts, although the browser identifier is not a secure authentication mechanism.
 
-## 3. Verification and Testing
+## 3. Verification
 
-I manually tested the application and verified the following functionality:
+I manually verified the following functionality:
 
-1. Submitted a prompt and received responses from both Groq and Cerebras.
-2. Confirmed that both responses displayed side by side.
-3. Submitted a vote and received confirmation that it was saved.
-4. Verified that the leaderboard reflected the recorded vote.
-5. Confirmed that previous prompts and votes appeared in the History section.
-6. Closed and reopened the browser and verified that comparison history remained available.
-7. Restarted the Next.js development server and confirmed that saved comparisons and votes persisted.
-8. Executed `npm run build` successfully, confirming that the application compiled and passed TypeScript and linting checks.
+1. Both Groq and Cerebras generated responses from the same prompt.
+2. Both responses appeared side by side.
+3. A user could vote for the preferred response.
+4. The leaderboard displayed the correct voting statistics.
+5. Previous comparisons and votes appeared in the History section.
+6. History persisted after closing and reopening the browser.
+7. History persisted after restarting the local development server.
+8. Comparisons were successfully inserted into Neon PostgreSQL.
+9. Voting results were successfully updated in the PostgreSQL database.
+10. The application passed `npm run build`, including TypeScript and linting checks.
 
-These tests confirmed the core functionality of the local application. They do not replace comprehensive automated, load, or security testing.
+These tests verified the core application functionality locally. Comprehensive automated, load, and security tests were not performed.
 
 ## 4. Limitations and Future Improvements
 
-Given additional development time, I would prioritize:
+With additional time, I would improve the application by:
 
-- **Hosted database:** Replace local JSON storage with PostgreSQL or another managed database for reliable persistence during deployment.
-- **User authentication:** Implement secure accounts and user-specific comparison history.
-- **Rate limiting:** Prevent excessive API usage and protect free API quotas.
-- **Error handling:** Improve handling of provider failures, timeouts, and partial responses.
-- **Automated testing:** Add integration and end-to-end tests for API requests, voting, and history.
-- **Blind comparison:** Randomize model positioning and hide model identities until after voting to reduce evaluation bias.
-- **Performance monitoring:** Track API response times and provider reliability.
+- Adding secure user authentication.
+- Implementing API rate limiting and usage monitoring.
+- Adding automated integration and end-to-end tests.
+- Handling individual provider failures more gracefully.
+- Randomizing model positions and hiding identities until voting.
+- Recording API latency and reliability metrics.
+- Strengthening access controls and data privacy.
 
 ## 5. Deployment Considerations
 
-The application currently uses a local JSON file for persistence. This is appropriate for local development but is not reliable on Vercel's serverless infrastructure.
+The application uses Neon PostgreSQL for persistent cloud storage and is structured for deployment through Vercel.
 
-Before deploying a fully functional public version, the storage layer should be migrated to a hosted database.
+The deployment environment requires valid Groq, Cerebras, and Neon credentials configured as server-side environment variables.
 
-The application also needs its API keys configured as server-side environment variables during deployment.
+A public deployment should be tested separately to confirm that all application features function correctly in the hosted environment.
